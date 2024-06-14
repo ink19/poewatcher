@@ -3,6 +3,8 @@
 !.gitignore
 !*/
 config.json
+config.ini
+config.yaml
 .vscode
 .history
 .idea

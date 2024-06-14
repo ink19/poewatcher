@@ -5,14 +5,14 @@ import (
 	"os"
 
 	"github.com/ink19/poewatcher/config"
-	"github.com/ink19/poewatcher/internal"
+	"github.com/ink19/poewatcher/logic/watch"
 	log "github.com/sirupsen/logrus"
 )
 
 var configFileName string
 
 func init() {
-	flag.StringVar(&configFileName, "config", "config.json", "config file")
+	flag.StringVar(&configFileName, "config", "config.yaml", "config file")
 }
 
 func main() {
@@ -21,5 +21,5 @@ func main() {
 	
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
-	internal.RunServer()
+	watch.RunServer()
 }

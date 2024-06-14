@@ -11,9 +11,15 @@ import (
 type Config struct {
 	Port   int `config:"port"`
 	Notify struct {
-		Type string `config:"wework"`
+		Type string `config:"type"`
 		URL  string `config:"url"`
 	} `config:"notify"`
+}
+
+var cfg Config
+
+func Get() *Config {
+	return &cfg
 }
 
 func init() {
@@ -26,5 +32,9 @@ func init() {
 func Init(configFileName string) {
 	if err := config.LoadFiles(configFileName); err != nil {
 		log.Panicf("LoadFiles fail, err: %v", err)
+	}
+	
+	if err := config.Decode(&cfg); err != nil {
+		log.Panicf("Decode fail, err: %v", err)
 	}
 }
