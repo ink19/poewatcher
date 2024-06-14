@@ -14,6 +14,9 @@ type Config struct {
 		Type string `config:"type"`
 		URL  string `config:"url"`
 	} `config:"notify"`
+	DB struct {
+		Path string `config:"path"`
+	} `config:"db"`
 }
 
 var cfg Config
