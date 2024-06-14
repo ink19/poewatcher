@@ -28,7 +28,7 @@ type Record struct {
 
 type Client interface {
 	AddRecord(ctx context.Context, record *Record) error
-	UpdateRecordStatus(ctx context.Context, id uint64, status RecordStatusEnum) error
+	UpdateRecordStatus(ctx context.Context, id int64, status RecordStatusEnum) error
 	GetRecord(ctx context.Context, id int64) (*Record, error)
 	ListRecords(ctx context.Context) ([]*Record, error)
 	DeleteRecord(ctx context.Context, id int64) error
@@ -62,7 +62,7 @@ func (c *client) AddRecord(ctx context.Context, record *Record) error {
 	return nil
 }
 
-func (c *client) UpdateRecordStatus(ctx context.Context, id uint64, status RecordStatusEnum) error {
+func (c *client) UpdateRecordStatus(ctx context.Context, id int64, status RecordStatusEnum) error {
 	_, err := dbHandler.Exec("UPDATE record SET status = ? WHERE id = ?", status, id)
 	return err
 }
