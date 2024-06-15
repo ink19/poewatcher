@@ -28,3 +28,4 @@ build/
 !WORKSPACE
 !BUILD
 .xac
+*.db

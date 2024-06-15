@@ -1,13 +1,11 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"os"
 
 	"github.com/ink19/poewatcher/config"
-	"github.com/ink19/poewatcher/logic/dao"
-	"github.com/ink19/poewatcher/logic/watch"
+	"github.com/ink19/poewatcher/logic/server"
 	log "github.com/sirupsen/logrus"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -26,5 +24,7 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 
-	watch.WatchRecord(context.Background(), &dao.Record{})
+	if err := server.New().Run(); err != nil {
+		log.Fatal(err)
+	}
 }
