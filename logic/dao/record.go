@@ -44,21 +44,31 @@ var (
 func NewClient() Client {
 	dbOnce.Do(func() {
 		var err error
-		dbHandler, err = sql.Open("sqlite3", config.Get().DB.Path + ":locked.sqlite?cache=shared")
+		dbHandler, err = sql.Open("sqlite3", config.Get().DB.Path + "?cache=shared")
 		if err != nil {
 			logrus.Errorf("open db error: %s", err)
 			panic(err)
 		}
 		dbHandler.SetMaxOpenConns(1)
+		createTableIfNotExists()
 	})
 	return &client{}
 }
 
+func createTableIfNotExists() {
+	_, err := dbHandler.Exec("CREATE TABLE IF NOT EXISTS record (id INTEGER PRIMARY KEY AUTOINCREMENT, season_id TEXT, search_id TEXT, cookie TEXT, status INTEGER)")
+	if err != nil {
+		logrus.Errorf("create table record error: %s", err)
+		panic(err)
+	}
+}
+
 func (c *client) AddRecord(ctx context.Context, record *Record) error {
-	_, err := dbHandler.Exec("INSERT INTO record (season_id, search_id, cookie, status) VALUES (?, ?, ?, ?)", record.SeasonID, record.SearchID, record.Cookie, record.Status)
+	dbRsp, err := dbHandler.Exec("INSERT INTO record (season_id, search_id, cookie, status) VALUES (?, ?, ?, ?)", record.SeasonID, record.SearchID, record.Cookie, record.Status)
 	if err != nil {
 		return err
 	}
+	record.ID, _ = dbRsp.LastInsertId()
 	return nil
 }
 

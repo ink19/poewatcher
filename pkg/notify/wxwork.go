@@ -66,9 +66,14 @@ func (c *wxWorkClient) packTextMsg(ctx context.Context, msg string) ([]byte, err
 }
 
 func (c *wxWorkClient) invoke(ctx context.Context, body []byte) error {
-	rsp, err := http.NewRequestWithContext(ctx, http.MethodPost, c.reqURI, bytes.NewReader([]byte(body)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.reqURI, bytes.NewReader([]byte(body)))
 	if err != nil {
 		log.WithContext(ctx).Debugf("Request WxWork fail, err: %v", err)
+		return err
+	}
+	rsp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.WithContext(ctx).Debugf("Do WxWork fail, err: %v", err)
 		return err
 	}
 	rspBody, err := io.ReadAll(rsp.Body)

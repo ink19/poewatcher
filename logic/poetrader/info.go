@@ -17,6 +17,11 @@ type GetInfoRes struct {
 }
 
 func (c *client) GetInfo(ctx context.Context, searchID string, goodID string) (*PoeGood, error) {
+	err := rateLimit.Wait(ctx)
+	if err != nil {
+		log.WithContext(ctx).Errorf("Rate limit fail, err: %v", err)
+		return nil, err
+	}
 	reqURL := fmt.Sprintf(poeInfoRequest, goodID, searchID)
 	rspBody, err := c.request(ctx, reqURL)
 	if err != nil {

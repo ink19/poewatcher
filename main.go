@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
 	"github.com/ink19/poewatcher/config"
+	"github.com/ink19/poewatcher/logic/dao"
 	"github.com/ink19/poewatcher/logic/watch"
 	log "github.com/sirupsen/logrus"
 
@@ -23,5 +25,6 @@ func main() {
 
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
-	watch.RunServer()
+
+	watch.WatchRecord(context.Background(), &dao.Record{})
 }

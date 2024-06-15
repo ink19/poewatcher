@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 
+	"github.com/ink19/poewatcher/config"
 	"github.com/ink19/poewatcher/logic/dao"
-	"github.com/ink19/poewatcher/pkg/poetrader"
+	"github.com/ink19/poewatcher/logic/poetrader"
+	"github.com/ink19/poewatcher/pkg/notify"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,6 +22,7 @@ func WatchRecord(ctx context.Context, record *dao.Record) error {
 		logrus.WithContext(ctx).Errorf("Watch search fail, err: %v", err)
 		return nil
 	}
+	notifyClient := notify.NewWxWork(config.Get().Notify.URL)
 	for good := range ch {
 		logrus.WithContext(ctx).Debugf("goodID: %s", good.ID)
 		good, err := poeClient.GetInfo(ctx, record.SearchID, good.ID)
@@ -34,6 +37,10 @@ func WatchRecord(ctx context.Context, record *dao.Record) error {
 			continue
 		}
 		logrus.WithContext(ctx).Debugf("%s", desc)
+		err = notifyClient.SendTextMsg(ctx, string(desc))
+		if err != nil {
+			logrus.WithContext(ctx).Errorf("SendTextMsg fail, err: %v", err)
+		}
 	}
 	return nil
 }

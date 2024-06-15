@@ -3,6 +3,10 @@ package poetrader
 import (
 	"context"
 	"net/http"
+	"sync"
+
+	"github.com/ink19/poewatcher/config"
+	"golang.org/x/time/rate"
 )
 
 type PoeItemExtended struct {
@@ -19,7 +23,7 @@ type PoeListing struct {
 
 type PoePrice struct {
 	Type     string `json:"type"`
-	Amount   string `json:"amount"`
+	Amount   int    `json:"amount"`
 	Currency string `json:"divine"`
 }
 
@@ -34,7 +38,16 @@ type Client interface {
 	Watch(ctx context.Context, searchID string) (<-chan *PoeGood, error)
 }
 
+var (
+	dbOnce = &sync.Once{}
+	rateLimit rate.Limiter
+)
+
 func New(seasonID string, cookies string) Client {
+	dbOnce.Do(func() {
+		rateLimit = *rate.NewLimiter(rate.Limit(config.Get().Poe.RateLimit), config.Get().Poe.RateLimit)
+	})
+
 	return &client{
 		cookies:  cookies,
 		header:   GetSimHeader(cookies),

@@ -17,6 +17,9 @@ type Config struct {
 	DB struct {
 		Path string `config:"path"`
 	} `config:"db"`
+	Poe struct {
+		RateLimit int `config:"rate_limit"`
+	} `config:"poe"`
 }
 
 var cfg Config
