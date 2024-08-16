@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -70,6 +71,20 @@ func (s *server) Run() error {
 	router.GET("/get", s.get)
 	router.GET("/list", s.list)
 
+	records, err := dao.NewClient().ListRecords(context.Background())
+	if err != nil {
+		logrus.WithError(err).Error("failed to get records from dao")
+		return err
+	}
+	for _, r := range records {
+		w := watch.New(r)
+		if err = w.Run(); err != nil {
+			logrus.WithError(err).Error("failed to run watcher")
+			continue
+		}
+		s.recordStorage.add(w)
+	}
+
 	return router.Run(fmt.Sprintf(":%d", config.Get().Port))
 }
 
@@ -96,7 +111,6 @@ func (s *server) add(ctx *gin.Context) {
 
 	s.recordStorage.add(w)
 	ctx.JSON(200, gin.H{"id": w.Record().ID})
-	return
 }
 
 func (s *server) delete(ctx *gin.Context) {
@@ -122,7 +136,6 @@ func (s *server) delete(ctx *gin.Context) {
 
 	w.Delete()
 	ctx.JSON(200, gin.H{"id": w.Record().ID})
-	return
 }
 
 func (s *server) get(ctx *gin.Context) {
@@ -147,7 +160,6 @@ func (s *server) get(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, w.Record())
-	return
 }
 
 func (s *server) list(ctx *gin.Context) {
@@ -159,5 +171,4 @@ func (s *server) list(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, records)
-	return
 }

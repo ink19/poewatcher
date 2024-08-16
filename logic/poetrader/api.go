@@ -40,12 +40,12 @@ type Client interface {
 
 var (
 	dbOnce = &sync.Once{}
-	rateLimit rate.Limiter
+	rateLimit *rate.Limiter
 )
 
 func New(seasonID string, cookies string) Client {
 	dbOnce.Do(func() {
-		rateLimit = *rate.NewLimiter(rate.Limit(config.Get().Poe.RateLimit), config.Get().Poe.RateLimit)
+		rateLimit = rate.NewLimiter(rate.Limit(config.Get().Poe.RateLimit), config.Get().Poe.RateLimit)
 	})
 
 	return &client{

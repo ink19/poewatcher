@@ -1,13 +1,18 @@
 package poetrader
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/sirupsen/logrus"
+)
 
 const (
-	simUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+	simUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
 
 func GetSimHeader(cookieStr string) *http.Header {
 	header := http.Header{}
+	logrus.Debug("cookie: %s", cookieStr)
 	header.Add("Cookie", cookieStr)
 	header.Add("Host", "poe.game.qq.com")
 	header.Add("Pragma", "no-cache")

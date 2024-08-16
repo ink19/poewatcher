@@ -31,9 +31,10 @@ func (c *client) Watch(ctx context.Context, searchID string) (<-chan *PoeGood, e
 	if c.header != nil {
 		header = c.header
 	}
-	conn, _, err := websocket.DefaultDialer.DialContext(ctx, watchURL, *header)
+	log.WithContext(ctx).Debugf("Watch url: %s", watchURL)
+	conn, rsp, err := websocket.DefaultDialer.DialContext(ctx, watchURL, *header)
 	if err != nil {
-		log.WithContext(ctx).Errorf("WS connect fail, err: %v", err)
+		log.WithContext(ctx).Errorf("WS connect fail, err: %v, rsp code: %d", err, rsp.StatusCode)
 		return nil, err
 	}
 	log.WithContext(ctx).Debugf("BeginWatch")

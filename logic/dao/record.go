@@ -20,6 +20,7 @@ const (
 
 type Record struct {
 	ID       int64            `json:"id"`
+	Name     string           `json:"name"`
 	SeasonID string           `json:"season_id"`
 	SearchID string           `json:"search_id"`
 	Cookie   string           `json:"cookie"`
@@ -34,17 +35,17 @@ type Client interface {
 	DeleteRecord(ctx context.Context, id int64) error
 }
 
-type client struct {}
+type client struct{}
 
 var (
-	dbOnce = &sync.Once{}
+	dbOnce    = &sync.Once{}
 	dbHandler *sql.DB
 )
 
 func NewClient() Client {
 	dbOnce.Do(func() {
 		var err error
-		dbHandler, err = sql.Open("sqlite3", config.Get().DB.Path + "?cache=shared")
+		dbHandler, err = sql.Open("sqlite3", config.Get().DB.Path+"?cache=shared")
 		if err != nil {
 			logrus.Errorf("open db error: %s", err)
 			panic(err)
@@ -56,7 +57,7 @@ func NewClient() Client {
 }
 
 func createTableIfNotExists() {
-	_, err := dbHandler.Exec("CREATE TABLE IF NOT EXISTS record (id INTEGER PRIMARY KEY AUTOINCREMENT, season_id TEXT, search_id TEXT, cookie TEXT, status INTEGER)")
+	_, err := dbHandler.Exec("CREATE TABLE IF NOT EXISTS record (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, season_id TEXT, search_id TEXT, cookie TEXT, status INTEGER)")
 	if err != nil {
 		logrus.Errorf("create table record error: %s", err)
 		panic(err)
@@ -64,7 +65,7 @@ func createTableIfNotExists() {
 }
 
 func (c *client) AddRecord(ctx context.Context, record *Record) error {
-	dbRsp, err := dbHandler.Exec("INSERT INTO record (season_id, search_id, cookie, status) VALUES (?, ?, ?, ?)", record.SeasonID, record.SearchID, record.Cookie, record.Status)
+	dbRsp, err := dbHandler.Exec("INSERT INTO record (name, season_id, search_id, cookie, status) VALUES (?, ?, ?, ?, ?)", record.Name, record.SeasonID, record.SearchID, record.Cookie, record.Status)
 	if err != nil {
 		return err
 	}
@@ -78,14 +79,14 @@ func (c *client) UpdateRecordStatus(ctx context.Context, id int64, status Record
 }
 
 func (c *client) GetRecord(ctx context.Context, id int64) (*Record, error) {
-	rows, err := dbHandler.Query("SELECT id, season_id, search_id, cookie, status FROM record WHERE id = ?", id)
+	rows, err := dbHandler.Query("SELECT id, name, season_id, search_id, cookie, status FROM record WHERE id = ?", id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	if rows.Next() {
 		record := &Record{}
-		err := rows.Scan(&record.ID, &record.SeasonID, &record.SearchID, &record.Cookie, &record.Status)
+		err := rows.Scan(&record.ID, &record.Name, &record.SeasonID, &record.SearchID, &record.Cookie, &record.Status)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +96,7 @@ func (c *client) GetRecord(ctx context.Context, id int64) (*Record, error) {
 }
 
 func (c *client) ListRecords(ctx context.Context) ([]*Record, error) {
-	rows, err := dbHandler.Query("SELECT id, season_id, search_id, cookie, status FROM record")
+	rows, err := dbHandler.Query("SELECT id, name, season_id, search_id, cookie, status FROM record")
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +104,7 @@ func (c *client) ListRecords(ctx context.Context) ([]*Record, error) {
 	var records []*Record
 	for rows.Next() {
 		record := &Record{}
-		err := rows.Scan(&record.ID, &record.SeasonID, &record.SearchID, &record.Cookie, &record.Status)
+		err := rows.Scan(&record.ID, &record.Name, &record.SeasonID, &record.SearchID, &record.Cookie, &record.Status)
 		if err != nil {
 			return nil, err
 		}
