@@ -12,7 +12,7 @@ const (
 
 func GetSimHeader(cookieStr string) *http.Header {
 	header := http.Header{}
-	logrus.Debug("cookie: %s", cookieStr)
+	logrus.Debugf("cookie: %s", cookieStr)
 	header.Add("Cookie", cookieStr)
 	header.Add("Host", "poe.game.qq.com")
 	header.Add("Pragma", "no-cache")

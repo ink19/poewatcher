@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -42,4 +43,29 @@ func (c *client) GetInfo(ctx context.Context, searchID string, goodID string) (*
 		}, nil
 	}
 	return res.Result[0], err
+}
+
+func (c *client) BatchGetInfo(ctx context.Context, searchID string, goodIDs []string) ([]*PoeGood, error) {
+	err := rateLimit.Wait(ctx)
+	if err != nil {
+		log.WithContext(ctx).Errorf("Rate limit fail, err: %v", err)
+		return nil, err
+	}
+	reqURL := fmt.Sprintf(poeInfoRequest, strings.Join(goodIDs, ","), searchID)
+	rspBody, err := c.request(ctx, reqURL)
+	if err != nil {
+		log.WithContext(ctx).Errorf("Request fail, err: %v", err)
+		return nil, err
+	}
+	res := &GetInfoRes{}
+	err = json.Unmarshal(rspBody, res)
+	if err != nil {
+		log.WithContext(ctx).Errorf("Unmarshal fail, err: %v", err)
+		return nil, err
+	}
+	if len(res.Result) == 0 {
+		log.WithContext(ctx).Errorf("Empty result")
+		return nil, fmt.Errorf("empty result")
+	}
+	return res.Result, err
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"os/signal"
 
 	"github.com/ink19/poewatcher/config"
 	"github.com/ink19/poewatcher/logic/server"
@@ -20,11 +21,18 @@ func init() {
 func main() {
 	flag.Parse()
 	config.Init(configFileName)
-
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 
-	if err := server.New().Run(); err != nil {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+	s := server.New()
+	go func() {
+		<-interrupt
+		_ = s.Stop()
+	}()
+
+	if err := s.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -29,3 +29,4 @@ build/
 !BUILD
 .xac
 *.db
+*.sqlite3

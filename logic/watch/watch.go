@@ -22,9 +22,11 @@ type Watcher interface {
 type watcher struct {
 	record *dao.Record
 	ctx context.Context
-	cancel context.CancelFunc
+	c poetrader.Client
+	done context.CancelFunc
 
 	lock sync.Locker
+	wg sync.WaitGroup
 }
 
 func New(r *dao.Record) Watcher {
@@ -40,15 +42,19 @@ func (w *watcher) Run() error {
 
 	ctx, done := context.WithCancel(context.Background())
 	w.ctx = ctx
-	w.cancel = done
+	w.done = done
 
-	if err := initRecord(ctx, w.record); err != nil {
+	logrus.WithContext(ctx).Debugf("Begin Run, record: %v", w.record)
+
+	if err := w.initRecord(ctx); err != nil {
 		logrus.WithContext(ctx).Errorf("initRecord fail, err: %v", err)
 		return err
 	}
 
+	w.wg.Add(1)
 	go func ()  {
-		_ = WatchRecord(ctx, w.record)
+		defer w.wg.Done()
+		_ = w.WatchRecord(ctx)
 	}()
 	return nil
 }
@@ -60,27 +66,30 @@ func (w *watcher) Record() *dao.Record {
 func (w *watcher) Stop() {
 	w.lock.Lock()
 	defer w.lock.Unlock()
-
+	
+	_ = w.c.Stop(w.ctx)
+	w.record.Status = dao.RecordStatusPending
 	err := dao.NewClient().UpdateRecordStatus(w.ctx, w.record.ID, dao.RecordStatusPending)
 	if err != nil {
 		logrus.WithContext(w.ctx).Errorf("update record status fail, err: %v", err)
 	}
-	w.cancel()
 }
 
 func (w *watcher) Delete() {
 	w.lock.Lock()
 	defer w.lock.Unlock()
-	
+
+	_ = w.c.Stop(w.ctx)
 	if err := dao.NewClient().DeleteRecord(w.ctx, w.record.ID); err != nil {
 		logrus.WithContext(w.ctx).Errorf("delete record fail, err: %v", err)
 	}
-	w.cancel()
 }
 
-func WatchRecord(ctx context.Context, record *dao.Record) error {
-	poeClient := poetrader.New(record.SeasonID, record.Cookie)
-	ch, err := poeClient.Watch(ctx, record.SearchID)
+func (w *watcher) WatchRecord(ctx context.Context) error {
+	poeClient := poetrader.New(w.record.SeasonID, w.record.Cookie)
+	w.c = poeClient
+	
+	ch, err := poeClient.Watch(ctx, w.record.SearchID)
 	if err != nil {
 		logrus.WithContext(ctx).Errorf("Watch search fail, err: %v", err)
 		return nil
@@ -91,7 +100,7 @@ func WatchRecord(ctx context.Context, record *dao.Record) error {
 	notifyClient := notify.NewWxWork(config.Get().Notify.URL)
 	for good := range ch {
 		logrus.WithContext(ctx).Debugf("goodID: %s", good.ID)
-		good, err := poeClient.GetInfo(ctx, record.SearchID, good.ID)
+		good, err := poeClient.GetInfo(ctx, w.record.SearchID, good.ID)
 		if err != nil {
 			logrus.WithContext(ctx).Errorf("GetInfo fail, err: %v", err)
 			continue
@@ -111,23 +120,23 @@ func WatchRecord(ctx context.Context, record *dao.Record) error {
 	return nil
 }
 
-func initRecord(ctx context.Context, record *dao.Record) error {
-	if record.ID == 0 {
-		logrus.WithContext(ctx).Errorf("record.ID is 0, add to sql")
-		record.Status = dao.RecordStatusRunning
-		err := dao.NewClient().AddRecord(ctx, record)
+func (w *watcher) initRecord(ctx context.Context) error {
+	if w.record.ID == 0 {
+		logrus.WithContext(ctx).Debugf("w.record.ID is 0, add to sql")
+		w.record.Status = dao.RecordStatusRunning
+		err := dao.NewClient().AddRecord(ctx, w.record)
 		if err != nil {
 			logrus.WithContext(ctx).Errorf("AddRecord fail, err: %v", err)
 			return err
 		}
 	} else {
-		if record.Status == dao.RecordStatusRunning {
-			logrus.WithContext(ctx).Debugf("record %d Status is %d, skip", record.ID, record.Status)
+		if w.record.Status == dao.RecordStatusRunning {
+			logrus.WithContext(ctx).Debugf("record %d Status is %d, skip", w.record.ID, w.record.Status)
 			return nil
 		}
-		logrus.WithContext(ctx).Debugf("record.ID is %d, status is %d", record.ID, record.Status)
-		record.Status = dao.RecordStatusRunning
-		err := dao.NewClient().UpdateRecordStatus(ctx, record.ID, record.Status)
+		logrus.WithContext(ctx).Debugf("w.record.ID is %d, status is %d", w.record.ID, w.record.Status)
+		w.record.Status = dao.RecordStatusRunning
+		err := dao.NewClient().UpdateRecordStatus(ctx, w.record.ID, w.record.Status)
 		if err != nil {
 			logrus.WithContext(ctx).Errorf("UpdateRecordStatus fail, err: %v", err)
 			return err

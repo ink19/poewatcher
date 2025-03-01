@@ -43,7 +43,9 @@ func (c *client) Watch(ctx context.Context, searchID string) (<-chan *PoeGood, e
 		log.WithContext(ctx).Errorf("ReadWsConn fail, err: %v", err)
 		return nil, err
 	}
+	c.wg.Add(1)
 	go func ()  {
+		defer c.wg.Done()
 		for {
 			hasDone := false
 			select {
@@ -74,9 +76,16 @@ func (c *client) Watch(ctx context.Context, searchID string) (<-chan *PoeGood, e
 						ID: goodID,
 					}
 				}
+			case <- c.stopChan:
+				hasDone = true
 			}
 
 			if hasDone {
+				// 关闭连接
+				err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				if err != nil {
+					log.WithContext(ctx).Errorf("WriteMessage fail, err: %v", err)
+				}
 				log.WithContext(ctx).Debugf("Ctx done")
 				conn.Close()
 				break
@@ -94,8 +103,11 @@ func (c *client) Watch(ctx context.Context, searchID string) (<-chan *PoeGood, e
 
 func (c *client) readWSConn(ctx context.Context, conn *websocket.Conn) (chan *wsMessage, error) {
 	msgChan := make(chan *wsMessage, 10)
+	c.wg.Add(1)
 	go func ()  {
+		defer c.wg.Done()
 		defer close(msgChan)
+
 		for {
 			mt, ms, err := conn.ReadMessage()
 			if err != nil {
@@ -109,4 +121,11 @@ func (c *client) readWSConn(ctx context.Context, conn *websocket.Conn) (chan *ws
 		}
 	}()
 	return msgChan, nil
+}
+
+func (c *client) Stop(ctx context.Context) error {
+	c.stopChan <- struct{}{}
+	
+	c.wg.Wait()
+	return nil
 }

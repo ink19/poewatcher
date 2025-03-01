@@ -3,13 +3,12 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ink19/poewatcher/config"
 	"github.com/ink19/poewatcher/logic/dao"
 	"github.com/ink19/poewatcher/logic/watch"
 	"github.com/sirupsen/logrus"
@@ -49,10 +48,13 @@ func (s *recordStorage) delete(id int64) (watch.Watcher, bool) {
 
 type Server interface {
 	Run() error
+	Stop() error
 }
 
 type server struct{
 	recordStorage
+
+	service *http.Server
 }
 
 func New() Server {
@@ -70,6 +72,8 @@ func (s *server) Run() error {
 	router.GET("/delete", s.delete)
 	router.GET("/get", s.get)
 	router.GET("/list", s.list)
+	router.GET("/pause", s.pause)
+	router.GET("/start", s.start)
 
 	records, err := dao.NewClient().ListRecords(context.Background())
 	if err != nil {
@@ -85,7 +89,9 @@ func (s *server) Run() error {
 		s.recordStorage.add(w)
 	}
 
-	return router.Run(fmt.Sprintf(":%d", config.Get().Port))
+	s.service = &http.Server{Addr: ":8080", Handler: router}
+
+	return s.service.ListenAndServe()
 }
 
 func (s *server) add(ctx *gin.Context) {
@@ -110,6 +116,41 @@ func (s *server) add(ctx *gin.Context) {
 	}
 
 	s.recordStorage.add(w)
+	ctx.JSON(200, gin.H{"id": w.Record().ID})
+}
+
+func (s *server) start(ctx *gin.Context) {
+	idStr, ok := ctx.GetQuery("id")
+	if !ok {
+		logrus.Error("failed to get id")
+		ctx.JSON(400, gin.H{"error": "No id"})
+		return
+	}
+	
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		logrus.WithError(err).Error("failed to parse id")
+		ctx.JSON(400, gin.H{"error": "Invalid id"})
+		return
+	}
+
+	w, ok := s.recordStorage.get(id)
+	if !ok {
+		record, err := dao.NewClient().GetRecord(ctx, id)
+		if err != nil {
+			logrus.WithError(err).Error("failed to get record from dao")
+			ctx.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		w = watch.New(record)
+	}
+
+	if err = w.Run(); err != nil {
+		logrus.WithError(err).Error("failed to run watcher")
+		ctx.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
 	ctx.JSON(200, gin.H{"id": w.Record().ID})
 }
 
@@ -171,4 +212,37 @@ func (s *server) list(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, records)
+}
+
+func (s *server) pause(ctx *gin.Context) {
+	idStr, ok := ctx.GetQuery("id")
+	if !ok {
+		logrus.Error("failed to get id")
+		ctx.JSON(400, gin.H{"error": "No id"})
+		return
+	}
+	
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		logrus.WithError(err).Error("failed to parse id")
+		ctx.JSON(400, gin.H{"error": "Invalid id"})
+		return
+	}
+
+	w, ok := s.recordStorage.get(id)
+	if !ok {
+		ctx.JSON(404, gin.H{"error": "not found"})
+		return
+	}
+
+	w.Stop()
+	ctx.JSON(200, gin.H{"id": w.Record().ID})
+}
+
+func (s *server) Stop() error {
+	for _, w := range s.recordStorage.data {
+		w.Stop()
+	}
+
+	return s.service.Shutdown(context.Background())
 }

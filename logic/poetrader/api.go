@@ -36,6 +36,7 @@ type PoeGood struct {
 type Client interface {
 	GetInfo(ctx context.Context, searchID string, goodID string) (*PoeGood, error)
 	Watch(ctx context.Context, searchID string) (<-chan *PoeGood, error)
+	Stop(ctx context.Context) error
 }
 
 var (
@@ -52,6 +53,8 @@ func New(seasonID string, cookies string) Client {
 		cookies:  cookies,
 		header:   GetSimHeader(cookies),
 		seasonID: seasonID,
+		stopChan: make(chan struct{}),
+		wg: sync.WaitGroup{},
 	}
 }
 
@@ -60,4 +63,6 @@ type client struct {
 	seasonID string
 
 	header *http.Header
+	stopChan chan struct{}
+	wg sync.WaitGroup
 }
